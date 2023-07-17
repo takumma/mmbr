@@ -1,3 +1,11 @@
+use std::env;
+
+fn input() -> Vec<String> {
+    let args: Vec<String> = env::args().collect();
+    args
+}
+
 fn main() {
-    println!("Hello, world!");
+    let html = input();
+    println!("{:?}", html);
 }
