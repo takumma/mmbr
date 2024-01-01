@@ -18,6 +18,7 @@ pub struct HtmlTokenizer {
     state: State,
     pos: usize,
     current_token: Option<HtmlToken>,
+    reconsume: bool,
 }
 
 impl HtmlTokenizer {
@@ -27,19 +28,48 @@ impl HtmlTokenizer {
             pos: 0,
             input: html.chars().collect(),
             current_token: None,
+            reconsume: false,
         }
     }
 
     fn is_eof(&self) -> bool {
-        self.pos > self.input.len()
+        self.pos >= self.input.len()
+    }
+
+    fn consume_input(&mut self) -> char {
+        if self.reconsume {
+            self.reconsume = false;
+            self.input[self.pos - 1]
+        } else {
+            let c = match self.input.get(self.pos) {
+                Some(c) => *c,
+                None => '\0',
+            };
+            self.pos += 1;
+            c
+        }
+    }
+
+    fn is_whitespace(&self, c: char) -> bool {
+        c == ' ' || c == '\n' || c == '\t'
     }
 
     fn create_start_tag_token(&mut self) {
+        self.reconsume = true;
         self.current_token = Some(HtmlToken::StartTag(String::new()));
     }
 
     fn create_end_tag_token(&mut self) {
+        self.reconsume = true;
         self.current_token = Some(HtmlToken::EndTag(String::new()));
+    }
+
+    fn append_tag_name(&mut self, c: char) {
+        match self.current_token {
+            Some(HtmlToken::StartTag(ref mut tag_name)) => tag_name.push(c),
+            Some(HtmlToken::EndTag(ref mut tag_name)) => tag_name.push(c),
+            _ => panic!("Unexpected token: {:?}", self.current_token),
+        }
     }
     
 }
@@ -48,13 +78,16 @@ impl Iterator for HtmlTokenizer {
     type Item = HtmlToken;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.is_eof() {
+        if self.pos > self.input.len() {
             return None;
-        };
+        }
 
         loop {
-            let c = self.input[self.pos];
-            self.pos += 1;
+            
+            let c = self.consume_input();
+            if c == '\0' {
+                return Some(HtmlToken::Eof);
+            }
 
             match self.state {
                 State::Data => {
@@ -97,9 +130,10 @@ impl Iterator for HtmlTokenizer {
                 State::TagName => {
                     if c == '>' {
                         self.state = State::Data;
-                        continue;
+                        return self.current_token.take();
                     }
                     if c.is_alphabetic() {
+                        self.append_tag_name(c);
                         continue;
                     }
                     if self.is_eof() {
@@ -117,9 +151,7 @@ mod tests {
     fn test_next() {
         let html = String::from("<html>");
         let mut tokenizer = super::HtmlTokenizer::new(html);
-        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Char('<')));
         assert_eq!(tokenizer.next(), Some(super::HtmlToken::StartTag("html".to_string())));
-        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Char('>')));
         assert_eq!(tokenizer.next(), Some(super::HtmlToken::Eof));
         assert_eq!(tokenizer.next(), None);
     }
