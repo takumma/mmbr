@@ -71,7 +71,6 @@ impl HtmlTokenizer {
             _ => panic!("Unexpected token: {:?}", self.current_token),
         }
     }
-    
 }
 
 impl Iterator for HtmlTokenizer {
@@ -83,8 +82,8 @@ impl Iterator for HtmlTokenizer {
         }
 
         loop {
-            
             let c = self.consume_input();
+            // when self.pos is at the end of input, return Eof
             if c == '\0' {
                 return Some(HtmlToken::Eof);
             }
@@ -148,10 +147,50 @@ impl Iterator for HtmlTokenizer {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_next() {
+    fn test_starttag() {
         let html = String::from("<html>");
         let mut tokenizer = super::HtmlTokenizer::new(html);
-        assert_eq!(tokenizer.next(), Some(super::HtmlToken::StartTag("html".to_string())));
+        assert_eq!(
+            tokenizer.next(),
+            Some(super::HtmlToken::StartTag("html".to_string()))
+        );
+        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Eof));
+        assert_eq!(tokenizer.next(), None);
+    }
+
+    #[test]
+    fn test_endtag() {
+        let html = String::from("<html></html>");
+        let mut tokenizer = super::HtmlTokenizer::new(html);
+        assert_eq!(
+            tokenizer.next(),
+            Some(super::HtmlToken::StartTag("html".to_string()))
+        );
+        assert_eq!(
+            tokenizer.next(),
+            Some(super::HtmlToken::EndTag("html".to_string()))
+        );
+        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Eof));
+        assert_eq!(tokenizer.next(), None);
+    }
+
+    #[test]
+    fn test_char() {
+        let html = String::from("<html>hello</html>");
+        let mut tokenizer = super::HtmlTokenizer::new(html);
+        assert_eq!(
+            tokenizer.next(),
+            Some(super::HtmlToken::StartTag("html".to_string()))
+        );
+        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Char('h')));
+        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Char('e')));
+        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Char('l')));
+        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Char('l')));
+        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Char('o')));
+        assert_eq!(
+            tokenizer.next(),
+            Some(super::HtmlToken::EndTag("html".to_string()))
+        );
         assert_eq!(tokenizer.next(), Some(super::HtmlToken::Eof));
         assert_eq!(tokenizer.next(), None);
     }
