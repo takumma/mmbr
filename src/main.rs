@@ -1,5 +1,5 @@
 use gtk::prelude::*;
-use gtk::{glib, Application, ApplicationWindow};
+use gtk::{Application, ApplicationWindow};
 use std::cell::RefCell;
 use std::env;
 use std::rc::{Rc, Weak};
@@ -31,10 +31,15 @@ fn build_ui(app: &Application) {
 
 pub enum State {
     Data,
+    TagOpen,
+    EndTagOpen,
+    TagName,
 }
 
 pub enum HtmlToken {
     Char(char),
+    StartTag(String),
+    EndTag(String),
     Eof,
 }
 
@@ -71,18 +76,58 @@ impl Iterator for HtmlTokenizer {
             self.pos += 1;
 
             match self.state {
-                State::Data => match c {
-                    _ => {
-                        if self.is_eof() {
-                            return Some(HtmlToken::Eof);
-                        }
-                        return Some(HtmlToken::Char(c));
+                State::Data => {
+                    if c == '<' {
+                        self.state = State::TagOpen;
+                        continue;
                     }
-                },
+                    if self.is_eof() {
+                        return Some(HtmlToken::Eof);
+                    }
+
+                    return Some(HtmlToken::Char(c));
+                }
+                State::TagOpen => {
+                    if c == '/' {
+                        self.state = State::EndTagOpen;
+                        continue;
+                    }
+                    if c.is_alphabetic() {
+                        self.state = State::TagName;
+                        continue;
+                    }
+                    if self.is_eof() {
+                        return Some(HtmlToken::Eof);
+                    }
+
+                    self.state = State::Data;
+                }
+                State::EndTagOpen => {
+                    if c.is_alphabetic() {
+                        self.state = State::TagName;
+                        continue;
+                    }
+                    if self.is_eof() {
+                        return Some(HtmlToken::Eof);
+                    }
+                }
+                State::TagName => {
+                    if c == '>' {
+                        self.state = State::Data;
+                        continue;
+                    }
+                    if c.is_alphabetic() {
+                        continue;
+                    }
+                    if self.is_eof() {
+                        return Some(HtmlToken::Eof);
+                    }
+                
+                }
             }
         }
     }
-}
+}   
 
 pub struct Node {
     kind: NodeKind,
@@ -112,7 +157,31 @@ impl Node {
 
 pub enum NodeKind {
     Document,
+    Element(Element),
     Text(String),
+}
+
+pub struct Element {
+    kind: HtmlElementKind,
+    // attributes: Vec<Attribute>,
+}
+
+pub enum HtmlElementKind {
+    Html,
+    Head,
+    Body,
+    Title,
+    P,
+    Div,
+    Span,
+    H1,
+    H2,
+}
+
+impl Element {
+    pub fn new(kind: HtmlElementKind) -> Self {
+        Self { kind }
+    }
 }
 
 pub struct HtmlPerser {
@@ -180,6 +249,55 @@ impl HtmlPerser {
                     token = self.tokenizer.next();
                     continue;
                 }
+                Some(HtmlToken::StartTag(tag_name)) => {
+                    let node = Rc::new(RefCell::new(Node::new(NodeKind::Text(tag_name))));
+
+                    let current_node = match self.stack_of_open_elements.last() {
+                        Some(n) => n,
+                        None => &self.root,
+                    };
+
+                    if current_node.borrow().first_child().is_some() {
+                        current_node
+                            .borrow()
+                            .first_child()
+                            .unwrap()
+                            .borrow_mut()
+                            .next_sibling = Some(node.clone());
+                        node.borrow_mut().previous_sibling =
+                            Some(Rc::downgrade(&current_node.borrow().first_child().unwrap()));
+                    } else {
+                        current_node.borrow_mut().first_child = Some(node.clone());
+                    }
+
+                    current_node.borrow_mut().last_child = Some(Rc::downgrade(&node));
+                    node.borrow_mut().parent = Some(Rc::downgrade(&current_node));
+
+                    self.stack_of_open_elements.push(node);
+                    token = self.tokenizer.next();
+                    continue;
+                }
+                Some(HtmlToken::EndTag(tag_name)) => {
+                    let mut i = self.stack_of_open_elements.len() - 1;
+                    loop {
+                        if i == 0 {
+                            break;
+                        }
+
+                        let node = self.stack_of_open_elements[i].clone();
+                        if let NodeKind::Text(ref text) = node.borrow().kind {
+                            if text == &tag_name {
+                                self.stack_of_open_elements.remove(i);
+                                break;
+                            }
+                        }
+
+                        i -= 1;
+                    }
+
+                    token = self.tokenizer.next();
+                    continue;
+                }
                 Some(HtmlToken::Eof) => {
                     return self.root.clone();
                 }
@@ -189,4 +307,10 @@ impl HtmlPerser {
 
         self.root.clone()
     }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test() {}
 }
