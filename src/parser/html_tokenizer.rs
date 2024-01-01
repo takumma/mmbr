@@ -5,6 +5,7 @@ pub enum State {
     TagName,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum HtmlToken {
     Char(char),
     StartTag(String),
@@ -16,6 +17,7 @@ pub struct HtmlTokenizer {
     input: Vec<char>,
     state: State,
     pos: usize,
+    current_token: Option<HtmlToken>,
 }
 
 impl HtmlTokenizer {
@@ -24,12 +26,22 @@ impl HtmlTokenizer {
             state: State::Data,
             pos: 0,
             input: html.chars().collect(),
+            current_token: None,
         }
     }
 
     fn is_eof(&self) -> bool {
         self.pos > self.input.len()
     }
+
+    fn create_start_tag_token(&mut self) {
+        self.current_token = Some(HtmlToken::StartTag(String::new()));
+    }
+
+    fn create_end_tag_token(&mut self) {
+        self.current_token = Some(HtmlToken::EndTag(String::new()));
+    }
+    
 }
 
 impl Iterator for HtmlTokenizer {
@@ -63,6 +75,7 @@ impl Iterator for HtmlTokenizer {
                     }
                     if c.is_alphabetic() {
                         self.state = State::TagName;
+                        self.create_start_tag_token();
                         continue;
                     }
                     if self.is_eof() {
@@ -74,6 +87,7 @@ impl Iterator for HtmlTokenizer {
                 State::EndTagOpen => {
                     if c.is_alphabetic() {
                         self.state = State::TagName;
+                        self.create_end_tag_token();
                         continue;
                     }
                     if self.is_eof() {
@@ -100,5 +114,13 @@ impl Iterator for HtmlTokenizer {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test() {}
+    fn test_next() {
+        let html = String::from("<html>");
+        let mut tokenizer = super::HtmlTokenizer::new(html);
+        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Char('<')));
+        assert_eq!(tokenizer.next(), Some(super::HtmlToken::StartTag("html".to_string())));
+        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Char('>')));
+        assert_eq!(tokenizer.next(), Some(super::HtmlToken::Eof));
+        assert_eq!(tokenizer.next(), None);
+    }
 }
