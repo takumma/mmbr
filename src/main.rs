@@ -1,6 +1,6 @@
+pub mod element;
 pub mod node;
 pub mod parser;
-pub mod element;
 
 use gtk::prelude::*;
 use gtk::{Application, ApplicationWindow};
@@ -30,7 +30,6 @@ fn build_ui(app: &Application) {
 
     window.present();
 }
-
 
 #[cfg(test)]
 mod test {
