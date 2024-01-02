@@ -88,105 +88,31 @@ impl HtmlPerser {
                 }
                 // https://html.spec.whatwg.org/multipage/parsing.html#the-before-html-insertion-mode
                 InsertionMode::BeforeHtml => match token {
-                    Some(HtmlToken::Char(c)) => {
-                        if self.is_whitespace(c) {
-                            token = self.tokenizer.next();
-                            continue;
-                        } else {
-                            self.insertion_mode = InsertionMode::BeforeHead;
-                            continue;
-                        }
+                    Some(HtmlToken::Char(c)) if self.is_whitespace(c) => {
+                        token = self.tokenizer.next();
+                        continue;
                     }
-                    Some(HtmlToken::StartTag(tag_name)) => {
-                        if tag_name == "html" {
-                            self.append_element(tag_name);
+                    Some(HtmlToken::StartTag(ref tag_name)) if tag_name == "html" => {
+                        self.append_element(tag_name.to_owned());
 
-                            self.insertion_mode = InsertionMode::BeforeHead;
-                            token = self.tokenizer.next();
-                            continue;
-                        } else {
-                            self.insertion_mode = InsertionMode::BeforeHead;
-                            continue;
-                        }
+                        self.insertion_mode = InsertionMode::BeforeHead;
+                        token = self.tokenizer.next();
+                        continue;
                     }
-                    Some(HtmlToken::EndTag(tag_name)) => {
-                        if tag_name == "html" {
-                            self.insertion_mode = InsertionMode::BeforeHead;
-                            continue;
-                        } else {
-                            self.insertion_mode = InsertionMode::BeforeHead;
-                            continue;
-                        }
+                    Some(HtmlToken::EndTag(ref s)) if s != "haed" || s != "body" || s != "html" || s != "br" => {
+                        token = self.tokenizer.next();
+                        continue;
                     }
-                    Some(HtmlToken::Eof) => {
+                    Some(HtmlToken::Eof) | None => {
                         return self.root.clone();
                     }
-                    None => {
-                        return self.root.clone();
+                    _ => {
+                        self.insertion_mode = InsertionMode::BeforeHead;
+                        continue;
                     }
                 },
                 _ => {}
             }
-            // match token {
-            //     Some(HtmlToken::Char(c)) => {
-            //         self.insert_char(c);
-            //         token = self.tokenizer.next();
-            //         continue;
-            //     }
-            //     Some(HtmlToken::StartTag(tag_name)) => {
-            //         let node = Rc::new(RefCell::new(Node::new(NodeKind::Text(tag_name))));
-
-            //         let current_node = match self.stack_of_open_elements.last() {
-            //             Some(n) => n,
-            //             None => &self.root,
-            //         };
-
-            //         if current_node.borrow().first_child().is_some() {
-            //             current_node
-            //                 .borrow()
-            //                 .first_child()
-            //                 .unwrap()
-            //                 .borrow_mut()
-            //                 .next_sibling = Some(node.clone());
-            //             node.borrow_mut().previous_sibling =
-            //                 Some(Rc::downgrade(&current_node.borrow().first_child().unwrap()));
-            //         } else {
-            //             current_node.borrow_mut().first_child = Some(node.clone());
-            //         }
-
-            //         current_node.borrow_mut().last_child = Some(Rc::downgrade(&node));
-            //         node.borrow_mut().parent = Some(Rc::downgrade(&current_node));
-
-            //         self.stack_of_open_elements.push(node);
-            //         token = self.tokenizer.next();
-            //         continue;
-            //     }
-            //     Some(HtmlToken::EndTag(tag_name)) => {
-            //         let mut i = self.stack_of_open_elements.len() - 1;
-            //         loop {
-            //             if i == 0 {
-            //                 break;
-            //             }
-
-            //             let node = self.stack_of_open_elements[i].clone();
-            //             if let NodeKind::Text(ref text) = node.borrow().kind {
-            //                 if text == &tag_name {
-            //                     self.stack_of_open_elements.remove(i);
-            //                     break;
-            //                 }
-            //             }
-
-            //             i -= 1;
-            //         }
-
-            //         token = self.tokenizer.next();
-            //         continue;
-            //     }
-            //     Some(HtmlToken::Eof) => {
-            //         return self.root.clone();
-            //     }
-            //     _ => {}
-            // }
         }
 
         self.root.clone()
