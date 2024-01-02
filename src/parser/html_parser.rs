@@ -133,9 +133,10 @@ impl HtmlPerser {
                         token = self.tokenizer.next();
                         continue;
                     }
-                    Some(HtmlToken::StartTag(ref tag_name)) => {
+                    Some(HtmlToken::StartTag(ref tag_name)) if tag_name == "body" => {
                         self.append_element(tag_name.to_owned());
                         token = self.tokenizer.next();
+                        self.insertion_mode = InsertionMode::InBody;
                         continue;
                     }
                     Some(HtmlToken::EndTag(ref tag_name)) => {

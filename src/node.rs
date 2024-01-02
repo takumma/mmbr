@@ -52,15 +52,43 @@ impl Node {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum NodeKind {
     Document,
     Element(Element),
     Text(String),
 }
 
+impl PartialEq for NodeKind {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (NodeKind::Document, NodeKind::Document) => true,
+            (NodeKind::Element(e1), NodeKind::Element(e2)) => e1.kind() == e2.kind(),
+            (NodeKind::Text(s1), NodeKind::Text(s2)) => s1 == s2,
+            _ => false,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn test_append_child_node() {}
+    fn test_append_child_node() {
+        let mut node = Node::new(NodeKind::Document);
+        let child_node = Rc::new(RefCell::new(Node::new(NodeKind::Text(String::from(
+            "hello",
+        )))));
+        node.append_child_node(child_node.clone());
+
+        assert_eq!(
+            node.first_child().unwrap().borrow().kind(),
+            NodeKind::Text(String::from("hello"))
+        );
+        assert_eq!(
+            node.last_child().unwrap().borrow().kind(),
+            NodeKind::Text(String::from("hello"))
+        );
+    }
 }

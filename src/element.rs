@@ -1,10 +1,10 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Element {
     kind: HtmlElementKind,
     // attributes: Vec<Attribute>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum HtmlElementKind {
     Html,
     Head,
