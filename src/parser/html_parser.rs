@@ -2,7 +2,10 @@ use std::{cell::RefCell, rc::Rc};
 
 use super::html_tokenizer::*;
 
-use crate::{node::{Node, NodeKind}, element::Element};
+use crate::{
+    element::Element,
+    node::{Node, NodeKind},
+};
 
 pub enum InsertionMode {
     Initial,
@@ -11,6 +14,7 @@ pub enum InsertionMode {
     InHead,
     InBody,
     Text,
+    AfterHead,
     AfterBody,
 }
 
@@ -34,11 +38,11 @@ impl HtmlPerser {
     fn is_whitespace(&self, c: char) -> bool {
         c == ' ' || c == '\n' || c == '\t'
     }
-    
+
     // create a text node
-    fn create_char(&self, c: char) -> Rc<RefCell<Node>> {
+    fn create_char(&self, c: char) -> Node {
         let s = String::from(c);
-        return Rc::new(RefCell::new(Node::new(NodeKind::Text(s))));
+        return Node::new(NodeKind::Text(s));
     }
 
     fn current_node(&self) -> &Rc<RefCell<Node>> {
@@ -60,9 +64,9 @@ impl HtmlPerser {
             _ => {}
         }
 
-        let node = self.create_char(c);
+        let node = Rc::new(RefCell::new(self.create_char(c)));
 
-        current_node.borrow_mut().append_child_node(node);
+        current_node.borrow_mut().append_child_node(node.clone());
         self.stack_of_open_elements.push(node);
     }
 
@@ -73,7 +77,9 @@ impl HtmlPerser {
 
         let current_node = self.current_node();
 
-        current_node.borrow_mut().append_child_node(new_node);
+        current_node
+            .borrow_mut()
+            .append_child_node(new_node.clone());
         self.stack_of_open_elements.push(new_node);
     }
 
@@ -99,7 +105,9 @@ impl HtmlPerser {
                         token = self.tokenizer.next();
                         continue;
                     }
-                    Some(HtmlToken::EndTag(ref s)) if s != "haed" || s != "body" || s != "html" || s != "br" => {
+                    Some(HtmlToken::EndTag(ref s))
+                        if s != "haed" || s != "body" || s != "html" || s != "br" =>
+                    {
                         token = self.tokenizer.next();
                         continue;
                     }
@@ -111,6 +119,40 @@ impl HtmlPerser {
                         continue;
                     }
                 },
+                InsertionMode::BeforeHead => {
+                    // TODO: implement head tag later
+                    self.insertion_mode = InsertionMode::InHead;
+                }
+                InsertionMode::InHead => {
+                    // TODO: implement head tag later
+                    self.insertion_mode = InsertionMode::AfterHead;
+                }
+                InsertionMode::InBody => match token {
+                    Some(HtmlToken::Char(c)) => {
+                        self.insert_char(c);
+                        token = self.tokenizer.next();
+                        continue;
+                    }
+                    Some(HtmlToken::StartTag(ref tag_name)) => {
+                        self.append_element(tag_name.to_owned());
+                        token = self.tokenizer.next();
+                        continue;
+                    }
+                    Some(HtmlToken::EndTag(ref tag_name)) => {
+                        if tag_name == "html" {
+                            self.insertion_mode = InsertionMode::AfterBody;
+                            token = self.tokenizer.next();
+                            continue;
+                        }
+                    }
+                    Some(HtmlToken::Eof) | None => {
+                        return self.root.clone();
+                    }
+                    _ => {}
+                },
+                InsertionMode::Text => {}
+                InsertionMode::AfterHead => {}
+                InsertionMode::AfterBody => {}
                 _ => {}
             }
         }
@@ -124,6 +166,5 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test() {
-    }
+    fn test() {}
 }

@@ -24,8 +24,8 @@ impl Node {
         }
     }
 
-    pub fn kind(&self) -> &NodeKind {
-        &self.kind
+    pub fn kind(&self) -> NodeKind {
+        self.kind.clone()
     }
 
     pub fn first_child(&self) -> Option<Rc<RefCell<Node>>> {
@@ -39,15 +39,16 @@ impl Node {
     }
 
     pub fn append_child_node(&mut self, child_node: Rc<RefCell<Node>>) {
-      if self.first_child.is_some() {
-        self.first_child.as_ref().unwrap().borrow_mut().next_sibling = Some(child_node.clone());
-        child_node.borrow_mut().previous_sibling = Some(Rc::downgrade(self.first_child.as_ref().unwrap()));
-      } else {
-        self.first_child = Some(child_node.clone());
-      }
+        if self.first_child.is_some() {
+            self.first_child.as_ref().unwrap().borrow_mut().next_sibling = Some(child_node.clone());
+            child_node.borrow_mut().previous_sibling =
+                Some(Rc::downgrade(self.first_child.as_ref().unwrap()));
+        } else {
+            self.first_child = Some(child_node.clone());
+        }
 
-      self.last_child = Some(Rc::downgrade(&child_node));
-      child_node.borrow_mut().parent = Some(Rc::downgrade(&Rc::new(RefCell::new(self.clone()))));
+        self.last_child = Some(Rc::downgrade(&child_node));
+        child_node.borrow_mut().parent = Some(Rc::downgrade(&Rc::new(RefCell::new(self.clone()))));
     }
 }
 
