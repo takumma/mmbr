@@ -88,6 +88,7 @@ impl HtmlPerser {
 
         while token.is_some() {
             match self.insertion_mode {
+                // https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode
                 InsertionMode::Initial => {
                     self.insertion_mode = InsertionMode::BeforeHtml;
                     continue;
@@ -119,17 +120,19 @@ impl HtmlPerser {
                         continue;
                     }
                 },
+                // https://html.spec.whatwg.org/multipage/parsing.html#the-before-head-insertion-mode
                 InsertionMode::BeforeHead => {
                     // TODO: implement head tag later
                     self.insertion_mode = InsertionMode::InHead;
                 }
+                // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhead
                 InsertionMode::InHead => {
                     // TODO: implement head tag later
                     self.insertion_mode = InsertionMode::AfterHead;
                 }
-                InsertionMode::InBody => match token {
-                    Some(HtmlToken::Char(c)) => {
-                        self.insert_char(c);
+                // https://html.spec.whatwg.org/multipage/parsing.html#the-after-head-insertion-mode
+                InsertionMode::AfterHead => match token {
+                    Some(HtmlToken::Char(c)) if self.is_whitespace(c) => {
                         token = self.tokenizer.next();
                         continue;
                     }
@@ -139,20 +142,51 @@ impl HtmlPerser {
                         self.insertion_mode = InsertionMode::InBody;
                         continue;
                     }
-                    Some(HtmlToken::EndTag(ref tag_name)) => {
-                        if tag_name == "html" {
-                            self.insertion_mode = InsertionMode::AfterBody;
-                            token = self.tokenizer.next();
-                            continue;
+                    Some(HtmlToken::StartTag(ref tag_name)) if tag_name == "head" => {
+                        // ignore token
+                        token = self.tokenizer.next();
+                        continue;
+                    }
+                    Some(HtmlToken::EndTag(ref s)) if s != "body" || s != "html" || s != "br" => {
+                        // ignore token
+                        token = self.tokenizer.next();
+                        continue;
+                    }
+                    Some(HtmlToken::Eof) | None => {
+                        return self.root.clone();
+                    }
+                    _ => {
+                        self.insertion_mode = InsertionMode::InBody;
+                        continue;
+                    }
+                }
+                // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inbody
+                InsertionMode::InBody => match token {
+                    Some(HtmlToken::Char(c)) => {
+                        self.insert_char(c);
+                        token = self.tokenizer.next();
+                        continue;
+                    }
+                    Some(HtmlToken::StartTag(ref tag_name)) => {
+                        match tag_name.as_str() {
+                            "p" | "div" | "span" | "h1" | "h2" => {
+                                self.append_element(tag_name.to_owned());
+                                token = self.tokenizer.next();
+                                continue;
+                            }
+                            _ => {
+                                println!("Unknown tag: {}", tag_name);
+                                token = self.tokenizer.next();
+                            }
                         }
                     }
+                    Some(HtmlToken::EndTag(ref tag_name)) => {}
                     Some(HtmlToken::Eof) | None => {
                         return self.root.clone();
                     }
                     _ => {}
                 },
                 InsertionMode::Text => {}
-                InsertionMode::AfterHead => {}
                 InsertionMode::AfterBody => {}
                 _ => {}
             }
