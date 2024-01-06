@@ -7,6 +7,7 @@ use crate::{
     node::{Node, NodeKind},
 };
 
+#[derive(Debug)]
 pub enum InsertionMode {
     Initial,
     BeforeHtml,
@@ -81,6 +82,19 @@ impl HtmlPerser {
             .borrow_mut()
             .append_child_node(new_node.clone());
         self.stack_of_open_elements.push(new_node);
+    }
+
+    fn pop_until(&mut self, kind: NodeKind) {
+        loop {
+            let current_element = self.stack_of_open_elements.pop();
+
+            if current_element.unwrap().borrow().kind() == kind {
+                self.stack_of_open_elements.pop();
+                break;
+            }
+
+            self.stack_of_open_elements.pop();
+        }
     }
 
     pub fn construct_tree(&mut self) -> Rc<RefCell<Node>> {
@@ -159,7 +173,7 @@ impl HtmlPerser {
                         self.insertion_mode = InsertionMode::InBody;
                         continue;
                     }
-                }
+                },
                 // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inbody
                 InsertionMode::InBody => match token {
                     Some(HtmlToken::Char(c)) => {
@@ -167,24 +181,31 @@ impl HtmlPerser {
                         token = self.tokenizer.next();
                         continue;
                     }
-                    Some(HtmlToken::StartTag(ref tag_name)) => {
-                        match tag_name.as_str() {
-                            "p" | "div" | "span" | "h1" | "h2" => {
-                                self.append_element(tag_name.to_owned());
-                                token = self.tokenizer.next();
-                                continue;
-                            }
-                            _ => {
-                                println!("Unknown tag: {}", tag_name);
-                                token = self.tokenizer.next();
-                            }
+                    Some(HtmlToken::StartTag(ref tag_name)) => match tag_name.as_str() {
+                        "p" | "div" | "span" | "h1" | "h2" => {
+                            self.append_element(tag_name.to_owned());
+                            token = self.tokenizer.next();
+                            continue;
                         }
-                    }
-                    Some(HtmlToken::EndTag(ref tag_name)) => {}
+                        _ => {
+                            println!("Unknown tag: {}", tag_name);
+                            token = self.tokenizer.next();
+                        }
+                    },
+                    Some(HtmlToken::EndTag(ref tag_name)) => match tag_name.as_str() {
+                        "p" | "div" | "span" | "h1" | "h2" => {
+                            self.stack_of_open_elements.pop();
+                            token = self.tokenizer.next();
+                            continue;
+                        }
+                        _ => {
+                            println!("Unknown tag: {}", tag_name);
+                            token = self.tokenizer.next();
+                        }
+                    },
                     Some(HtmlToken::Eof) | None => {
                         return self.root.clone();
                     }
-                    _ => {}
                 },
                 InsertionMode::Text => {}
                 InsertionMode::AfterBody => {}
