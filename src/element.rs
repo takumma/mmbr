@@ -17,6 +17,12 @@ pub enum HtmlElementKind {
     H2,
 }
 
+impl PartialEq for Element {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
+}
+
 impl Element {
     pub fn new(kind: HtmlElementKind) -> Self {
         Self { kind }

@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use super::html_tokenizer::*;
 
 use crate::{
-    element::Element,
+    element::{Element, HtmlElementKind},
     node::{Node, NodeKind},
 };
 
@@ -83,16 +83,18 @@ impl HtmlPerser {
         self.stack_of_open_elements.push(new_node);
     }
 
-    fn pop_until(&mut self, kind: NodeKind) {
+    fn pop_until(&mut self, kind: HtmlElementKind) {
         loop {
             let current_element = self.stack_of_open_elements.pop();
 
-            if current_element.unwrap().borrow().kind() == kind {
-                self.stack_of_open_elements.pop();
-                break;
+            match current_element {
+                Some(n) => {
+                    if n.borrow().kind == NodeKind::Element(Element::new(kind.clone())) {
+                        return;
+                    }
+                }
+                None => return,
             }
-
-            self.stack_of_open_elements.pop();
         }
     }
 
@@ -229,12 +231,45 @@ mod tests {
         parser.insert_char('c');
 
         let root = parser.root.borrow();
-
         println!("{:#?}", root);
 
         assert_eq!(
             root.first_child().unwrap().borrow().kind(),
             NodeKind::Text(String::from("abc"))
+        );
+    }
+
+    #[test]
+    fn test_append_element() {
+        let mut parser = HtmlPerser::new(HtmlTokenizer::new(String::from("")));
+
+        parser.append_element(String::from("div"));
+
+        let root = parser.root.borrow();
+        println!("{:#?}", root);
+
+        assert_eq!(
+            root.first_child().unwrap().borrow().kind(),
+            NodeKind::Element(Element::from_str("div"))
+        );
+    }
+
+    #[test]
+    fn test_pop_until() {
+        let mut parser = HtmlPerser::new(HtmlTokenizer::new(String::from("")));
+
+        parser.append_element(String::from("div"));
+        parser.append_element(String::from("span"));
+        parser.append_element(String::from("p"));
+
+        parser.pop_until(HtmlElementKind::Div);
+
+        let root = parser.root.borrow();
+        println!("{:#?}", root);
+
+        assert_eq!(
+            root.first_child().unwrap().borrow().kind(),
+            NodeKind::Element(Element::from_str("div"))
         );
     }
 }
