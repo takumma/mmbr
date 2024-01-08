@@ -4,7 +4,7 @@ use std::rc::{Rc, Weak};
 
 #[derive(Clone, Debug)]
 pub struct Node {
-    kind: NodeKind,
+    pub kind: NodeKind,
     parent: Option<Weak<RefCell<Node>>>,
     first_child: Option<Rc<RefCell<Node>>>,
     last_child: Option<Weak<RefCell<Node>>>,
@@ -62,7 +62,8 @@ impl Node {
         }
 
         self.last_child = Some(Rc::downgrade(&child_node));
-        child_node.borrow_mut().parent = Some(Rc::downgrade(&Rc::new(RefCell::new(self.to_owned()))));
+        child_node.borrow_mut().parent =
+            Some(Rc::downgrade(&Rc::new(RefCell::new(self.to_owned()))));
     }
 }
 

@@ -57,20 +57,19 @@ impl HtmlPerser {
     fn insert_char(&mut self, c: char) {
         let current_node = self.current_node();
 
-        match current_node.borrow_mut().kind() {
+        match current_node.borrow_mut().kind {
             NodeKind::Text(ref mut s) => {
                 s.push(c);
-                println!("pushed char: {}", s);
                 return;
             }
-            _ => {
-                let new_node = Rc::new(RefCell::new(self.create_char(c)));
-                self.current_node()
-                    .borrow_mut()
-                    .append_child_node(&new_node);
-                self.stack_of_open_elements.push(new_node);
-            }
+            _ => {}
         }
+
+        let node = Rc::new(RefCell::new(self.create_char(c)));
+
+        current_node.borrow_mut().append_child_node(&node);
+
+        self.stack_of_open_elements.push(node);
     }
 
     fn append_element(&mut self, tag_name: String) {
@@ -80,9 +79,7 @@ impl HtmlPerser {
 
         let current_node = self.current_node();
 
-        current_node
-            .borrow_mut()
-            .append_child_node(&new_node);
+        current_node.borrow_mut().append_child_node(&new_node);
         self.stack_of_open_elements.push(new_node);
     }
 
@@ -228,7 +225,6 @@ mod tests {
         let mut parser = HtmlPerser::new(HtmlTokenizer::new(String::from("")));
 
         parser.insert_char('a');
-        println!("{:#?}", parser.current_node());
         parser.insert_char('b');
         parser.insert_char('c');
 
@@ -236,6 +232,9 @@ mod tests {
 
         println!("{:#?}", root);
 
-        assert_eq!(root.first_child().unwrap().borrow().kind(), NodeKind::Text(String::from("abc")));
+        assert_eq!(
+            root.first_child().unwrap().borrow().kind(),
+            NodeKind::Text(String::from("abc"))
+        );
     }
 }
