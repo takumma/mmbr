@@ -60,15 +60,17 @@ impl HtmlPerser {
         match current_node.borrow_mut().kind() {
             NodeKind::Text(ref mut s) => {
                 s.push(c);
+                println!("pushed char: {}", s);
                 return;
             }
-            _ => {}
+            _ => {
+                let new_node = Rc::new(RefCell::new(self.create_char(c)));
+                self.current_node()
+                    .borrow_mut()
+                    .append_child_node(&new_node);
+                self.stack_of_open_elements.push(new_node);
+            }
         }
-
-        let node = Rc::new(RefCell::new(self.create_char(c)));
-
-        current_node.borrow_mut().append_child_node(node.clone());
-        self.stack_of_open_elements.push(node);
     }
 
     fn append_element(&mut self, tag_name: String) {
@@ -80,7 +82,7 @@ impl HtmlPerser {
 
         current_node
             .borrow_mut()
-            .append_child_node(new_node.clone());
+            .append_child_node(&new_node);
         self.stack_of_open_elements.push(new_node);
     }
 
@@ -222,5 +224,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test() {}
+    fn test_insert_char() {
+        let mut parser = HtmlPerser::new(HtmlTokenizer::new(String::from("")));
+
+        parser.insert_char('a');
+        println!("{:#?}", parser.current_node());
+        parser.insert_char('b');
+        parser.insert_char('c');
+
+        let root = parser.root.borrow();
+
+        println!("{:#?}", root);
+
+        assert_eq!(root.first_child().unwrap().borrow().kind(), NodeKind::Text(String::from("abc")));
+    }
 }

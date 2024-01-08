@@ -2,7 +2,7 @@ use crate::element::Element;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Node {
     kind: NodeKind,
     parent: Option<Weak<RefCell<Node>>>,
@@ -52,17 +52,17 @@ impl Node {
             .map(|n| n.upgrade().unwrap().clone())
     }
 
-    pub fn append_child_node(&mut self, child_node: Rc<RefCell<Node>>) {
+    pub fn append_child_node(&mut self, child_node: &Rc<RefCell<Node>>) {
         if self.first_child.is_some() {
             self.first_child.as_ref().unwrap().borrow_mut().next_sibling = Some(child_node.clone());
             child_node.borrow_mut().previous_sibling =
-                Some(Rc::downgrade(self.first_child.as_ref().unwrap()));
+                Some(Rc::downgrade(&self.first_child.as_ref().unwrap()));
         } else {
             self.first_child = Some(child_node.clone());
         }
 
         self.last_child = Some(Rc::downgrade(&child_node));
-        child_node.borrow_mut().parent = Some(Rc::downgrade(&Rc::new(RefCell::new(self.clone()))));
+        child_node.borrow_mut().parent = Some(Rc::downgrade(&Rc::new(RefCell::new(self.to_owned()))));
     }
 }
 
@@ -94,7 +94,7 @@ mod tests {
         let child_node = Rc::new(RefCell::new(Node::new(NodeKind::Text(String::from(
             "hello",
         )))));
-        node.append_child_node(child_node.clone());
+        node.append_child_node(&child_node);
 
         assert_eq!(
             node.first_child().unwrap().borrow().kind(),
